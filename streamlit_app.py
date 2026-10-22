@@ -1,25 +1,14 @@
-import os
-
-import joblib
-import numpy as np
 import streamlit as st
+import requests
 
-# Path to the model, relative to this file (works locally and on Streamlit Cloud)
-MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model.pkl")
-
-
-@st.cache_resource
-def load_model():
-    """Load the trained model once and reuse it."""
-    return joblib.load(MODEL_PATH)
-
+API_URL = " https://usable-jester-blazer.ngrok-free.dev" # our FastAPI server
 
 st.set_page_config(
-    page_title="Student Predictor",
-    page_icon="🎓",
-    layout="centered"
+page_title = "Student Predictor",
+page_icon = "■",
+layout = "centered"
 )
-st.title("🎓 Student Pass / Fail Predictor")
+st.title("■ Student Pass / Fail Predictor")
 st.markdown("Enter the student's details below to predict their result.")
 st.markdown("---")
 
@@ -49,29 +38,25 @@ with col2:
 st.markdown("---")
 
 
-if st.button("🔮 Predict Result", use_container_width=True):
-    try:
-        # Load the model directly (no FastAPI needed)
-        model = load_model()
+if st.button("■ Predict Result", use_container_width=True):
+    # Call the FastAPI prediction endpoint
+    response = requests.post(
+        f"{API_URL}/predict",
+        json={
+            "study_hours": study_hours,
+            "prev_score": prev_score
+        },
+        timeout =10
+    )
 
-        # Build the input the model expects: [[study_hours, prev_score]]
-        input_data = np.array([[study_hours, prev_score]])
-
-        prediction = int(model.predict(input_data)[0])
-        probabilities = model.predict_proba(input_data)[0]
-        confidence = round(float(probabilities[prediction]), 3)
-
-        result = {
-            "prediction": prediction,
-            "result_label": "Pass" if prediction == 1 else "Fail",
-            "confidence": confidence,
-        }
+    if response.status_code == 200:
+        result = response.json()
 
         # Display the result prominently
         if result["prediction"] == 1:
-            st.success(f"✅ Prediction: **{result['result_label']}**")
+            st.success(f"■ Prediction: **{result['result_label']}**")
         else:
-            st.error(f"❌ Prediction: **{result['result_label']}**")
+            st.error(f"■ Prediction: **{result['result_label']}**")
 
         # Show confidence
         st.metric(
@@ -79,8 +64,8 @@ if st.button("🔮 Predict Result", use_container_width=True):
             value=f"{result['confidence'] * 100:.1f}%"
         )
 
-        # Show the data that went into the model
-        with st.expander("See what went into the model"):
+        # Show the raw data that was sent
+        with st.expander("See what was sent to the API"):
             st.json({
                 "study_hours": study_hours,
                 "prev_score": prev_score
@@ -88,11 +73,10 @@ if st.button("🔮 Predict Result", use_container_width=True):
 
             st.json(result)
 
-    except FileNotFoundError:
-        st.error("model.pkl not found. Make sure it is in the same folder as this file.")
-    except Exception as e:
-        st.error(f"Something went wrong while predicting: {e}")
-
+    else:
+        st.error(
+            "Could not reach the prediction API. Is FastAPI running?"
+        )
 # This updates live as the user moves the sliders — no button click needed
 st.markdown("---")
 st.subheader("Current Input Summary")
