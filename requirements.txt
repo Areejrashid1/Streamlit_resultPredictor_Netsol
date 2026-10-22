@@ -1,5 +1,6 @@
-flask
-fastapi 
+streamlit
+requests
+fastapi
 uvicorn
 scikit-learn
 joblib
